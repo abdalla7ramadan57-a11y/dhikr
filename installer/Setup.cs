@@ -20,7 +20,7 @@ namespace DhikrSetup
     /// </summary>
     static class Setup
     {
-        const string AppName = "Dhikr", DisplayName = "Dhikr - ذكر", Version = "1.1.0";
+        const string AppName = "Dhikr", DisplayName = "Dhikr - ذكر", Version = "1.2.0";
         const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Dhikr";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 

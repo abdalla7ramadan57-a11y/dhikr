@@ -29,6 +29,19 @@ namespace Dhikr
         /// <summary>Hairline border, a touch brighter on top like light catching glass.</summary>
         public static readonly Brush Border = Freeze(new LinearGradientBrush(Hex("#38FFFFFF"), Hex("#14FFFFFF"), 90));
 
+        public static int GlowIndex(string key)
+        {
+            for (int i = 0; i < Defaults.GlowColors.GetLength(0); i++)
+                if (Defaults.GlowColors[i, 0] == key) return i;
+            return -1;
+        }
+
+        public static Color GlowColor(string key)
+        {
+            int i = Math.Max(0, GlowIndex(key));
+            return Hex(Defaults.GlowColors[i, 2]);
+        }
+
         public static Color Hex(string hex) { return (Color)ColorConverter.ConvertFromString(hex); }
         public static Brush HexBrush(string hex) { return Freeze(new SolidColorBrush(Hex(hex))); }
         static Brush Freeze(Brush b) { b.Freeze(); return b; }

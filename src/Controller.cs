@@ -19,6 +19,13 @@ namespace Dhikr
         readonly DispatcherTimer _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         TimeSpan? _intervalOverride;
 
+        readonly DispatcherTimer _activityProbe = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        System.Drawing.Point _anchor;
+        DateTime _lastActive = DateTime.Now;
+        TimeSpan _idleAfter = TimeSpan.FromMinutes(Defaults.IdleMinutes);
+
+        bool UserAway { get { return DateTime.Now - _lastActive >= _idleAfter; } }
+
         public void Start(string[] args)
         {
             State = Storage.Load();
@@ -29,6 +36,20 @@ namespace Dhikr
             int sec;
             if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out sec) && sec > 0)
                 _intervalOverride = TimeSpan.FromSeconds(sec);
+            // Testing aid: --idle-seconds 20  (how long without real mouse movement counts as "away")
+            i = Array.IndexOf(args, "--idle-seconds");
+            if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out sec) && sec > 0)
+                _idleAfter = TimeSpan.FromSeconds(sec);
+
+            // Away detection: only a real mouse move counts; small jitter (e.g. while a render runs) doesn't.
+            _anchor = Forms.Cursor.Position;
+            _activityProbe.Tick += (s, e) =>
+            {
+                var p = Forms.Cursor.Position;
+                int dx = p.X - _anchor.X, dy = p.Y - _anchor.Y;
+                if (dx * dx + dy * dy > 30 * 30) { _anchor = p; _lastActive = DateTime.Now; }
+            };
+            _activityProbe.Start();
 
             _saveTimer.Tick += (s, e) => { _saveTimer.Stop(); Storage.Save(State); };
             _reminder.Tick += (s, e) => Remind();
@@ -125,6 +146,23 @@ namespace Dhikr
             SaveSoon();
         }
 
+        /// <summary>In-card stepper: ±5 minutes.</summary>
+        public void StepInterval(int direction)
+        {
+            int m = State.ReminderMinutes + direction * Defaults.IntervalStep;
+            m = Math.Max(Defaults.IntervalMin, Math.Min(Defaults.IntervalMax, m));
+            SetInterval(m);
+            _widget.Refresh(0);
+            _widget.Touched();
+        }
+
+        public void SetGlowColor(string key)
+        {
+            State.GlowColor = key;
+            SaveSoon();
+            _widget.PreviewGlow();
+        }
+
         public void SetStartWithWindows(bool on)
         {
             State.StartWithWindows = on;
@@ -188,7 +226,9 @@ namespace Dhikr
             if (!_widget.IsVisible) return; // hidden = quiet
             State.CurrentIndex = (State.CurrentIndex + 1) % State.Adhkar.Count;
             SaveSoon();
-            _widget.Remind();
+            if (_widget.InAttention) { _widget.Refresh(0); return; } // still calling from last time
+            if (UserAway) _widget.RemindUntilClicked();
+            else _widget.Remind();
         }
 
         // ---------- menus (one dark menu, shared by the widget and the tray) ----------
@@ -242,7 +282,7 @@ namespace Dhikr
             if (m == 60) return "ساعة";
             if (m == 120) return "ساعتين";
             if (m % 60 == 0) return (m / 60) + " ساعات";
-            return m + " دقيقة";
+            return m + (m <= 10 ? " دقائق" : " دقيقة");
         }
 
         void CreateTray()

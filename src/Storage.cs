@@ -26,6 +26,7 @@ namespace Dhikr
         [DataMember(Order = 4)] public double VerticalRatio = 0.45;
         [DataMember(Order = 5)] public string Screen;
         [DataMember(Order = 6)] public bool? StartWithWindows;
+        [DataMember(Order = 7)] public string GlowColor;
 
         public DhikrItem Current
         {
@@ -82,6 +83,7 @@ namespace Dhikr
             s.Adhkar = list;
             s.CurrentIndex = Math.Max(0, list.FindIndex(d => d.Text == currentText));
             if (s.StartWithWindows == null) s.StartWithWindows = Defaults.StartWithWindows;
+            if (Glass.GlowIndex(s.GlowColor) < 0) s.GlowColor = Defaults.GlowColor;
             if (s.ReminderMinutes <= 0) s.ReminderMinutes = Defaults.ReminderMinutes;
             if (s.Side != "Left") s.Side = "Right";
             if (double.IsNaN(s.VerticalRatio) || s.VerticalRatio < 0 || s.VerticalRatio > 1) s.VerticalRatio = 0.45;

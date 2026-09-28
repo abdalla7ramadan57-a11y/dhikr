@@ -56,6 +56,11 @@ namespace Dhikr
             startupRow.Children.Add(toggle);
             panel.Children.Add(startupRow);
 
+            panel.Children.Add(Section("لون إضاءة التذكير"));
+            var colors = new ColorPicker(() => _c.State.GlowColor, key => _c.SetGlowColor(key), 20);
+            _refreshers.Add(colors.Refresh);
+            panel.Children.Add(colors);
+
             panel.Children.Add(Section("مكان الـWidget"));
             panel.Children.Add(Segmented(
                 new List<KeyValuePair<string, Action>>

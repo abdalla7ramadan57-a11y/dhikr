@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -46,6 +47,11 @@ namespace Dhikr
 
         readonly Spring _w = new Spring(HandleW), _h = new Spring(HandleH), _inset = new Spring(TuckedInset);
         readonly Spring _s = new Spring(1) { Epsilon = 0.0005 }, _p = new Spring(0);
+
+        // Reminder glow: a soft coloured halo around the panel (colour picked in settings).
+        readonly Spring _glow = new Spring(0) { Epsilon = 0.003 };
+        readonly DropShadowEffect _glowFx = new DropShadowEffect { ShadowDepth = 0, BlurRadius = 26, Opacity = 0 };
+        const double GlowRoom = 22;
         Spring _winX, _winY;
         bool _winMoving;
 
@@ -153,6 +159,13 @@ namespace Dhikr
             bottom.Children.Add(_plus);
             bottom.Children.Add(_cancel);
             bottom.Children.Add(_confirm);
+
+            // ⚙ next to "+": turns the card into its small settings view.
+            _gear = IconButton(GearIcon(), Glass.TextDim, () => SetSettingsMode(true));
+            _gear.HorizontalAlignment = HorizontalAlignment.Right;
+            _gear.Margin = new Thickness(0, 0, Btn + 2, 0);
+            _gear.ToolTip = "الإعدادات";
+            bottom.Children.Add(_gear);
             SetDeleteMode(false);
 
             _content = new Grid { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0 };
@@ -162,9 +175,12 @@ namespace Dhikr
             _content.Children.Add(row);
             _content.Children.Add(bottom);
 
+            _settings = BuildSettingsView();
+
             _inner = new Grid { Clip = _clip };
             _inner.Children.Add(_grip);
             _inner.Children.Add(_content);
+            _inner.Children.Add(_settings);
 
             _panel = new Border
             {
@@ -199,7 +215,7 @@ namespace Dhikr
             _panel.MouseMove += OnMove;
             _panel.MouseLeftButtonUp += OnUp;
             _panel.LostMouseCapture += (s, e) => { if (_dragging) SnapToEdge(); _mouseDown = false; };
-            _panel.MouseWheel += (s, e) => { if (_mode == Mode.Expanded) _c.Move(e.Delta < 0 ? 1 : -1); e.Handled = true; };
+            _panel.MouseWheel += (s, e) => { if (_mode == Mode.Expanded && !_settingsMode) _c.Move(e.Delta < 0 ? 1 : -1); e.Handled = true; };
             _panel.MouseRightButtonUp += (s, e) => { _c.OpenMenu(); e.Handled = true; };
 
             Refresh(0);
@@ -223,6 +239,21 @@ namespace Dhikr
         static Geometry Chevron(bool right)
         {
             return Geometry.Parse(right ? "M 11,8 L 16,13 L 11,18" : "M 15,8 L 10,13 L 15,18");
+        }
+
+        static Geometry GearIcon()
+        {
+            var g = new GeometryGroup();
+            g.Children.Add(new EllipseGeometry(new Point(13, 13), 4.6, 4.6));
+            g.Children.Add(new EllipseGeometry(new Point(13, 13), 1.4, 1.4));
+            for (int i = 0; i < 8; i++)
+            {
+                double a = i * Math.PI / 4;
+                g.Children.Add(new LineGeometry(
+                    new Point(13 + 5.2 * Math.Cos(a), 13 + 5.2 * Math.Sin(a)),
+                    new Point(13 + 7.4 * Math.Cos(a), 13 + 7.4 * Math.Sin(a))));
+            }
+            return g;
         }
 
         Border IconButton(Geometry icon, Brush stroke, Action click)
@@ -271,11 +302,14 @@ namespace Dhikr
             _cardW = Math.Max(MinCardW, Math.Ceiling(ts.Width) + 4 + 2 * Btn + 12 + 20 + 2);
             _cardH = Math.Ceiling(Math.Max(ts.Height, Btn)) + 4 + Btn + 16 + 2;
             _content.Width = _cardW - 2 - 20;
+            _settings.Width = SettingsW - 2 - 20;
+            _intervalText.Text = "كل " + Controller.IntervalShortLabel(_c.State.ReminderMinutes);
+            _colors.Refresh();
 
             if (direction != 0 && _mode == Mode.Expanded && _text.Text != item.Text) SlideText(item.Text, direction);
             else _text.Text = item.Text;
 
-            if (_mode == Mode.Expanded) { _w.Target = _cardW; _h.Target = _cardH; Kick(); }
+            if (_mode == Mode.Expanded) { _w.Target = TargetW; _h.Target = TargetH; Kick(); }
             UpdateConfirm();
         }
 
@@ -331,11 +365,13 @@ namespace Dhikr
         public void Expand(bool jelly)
         {
             if (!IsVisible) return;
+            _attention = false; // opening it answers any pending "until clicked" reminder
+            CancelScript();
             _mode = Mode.Expanded;
             Refresh(0);
             if (jelly) { _w.Tune(190, 0.48); _h.Tune(210, 0.55); _inset.Tune(200, 0.5); }
             else { _w.Tune(240, 0.8); _h.Tune(240, 0.85); _inset.Tune(240, 0.85); }
-            _w.Target = _cardW; _h.Target = _cardH; _inset.Target = OpenInset;
+            _w.Target = TargetW; _h.Target = TargetH; _inset.Target = OpenInset;
             Kick();
             if (!_panel.IsMouseOver) CollapseAfter(Defaults.CollapseAfterSeconds);
         }
@@ -349,7 +385,7 @@ namespace Dhikr
         void SetDeleteMode(bool on)
         {
             _deleteMode = on;
-            _plus.Visibility = _minus.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+            _plus.Visibility = _minus.Visibility = _gear.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
             _confirm.Visibility = _cancel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             _counter.Opacity = on ? 0.35 : 1; // counting is paused while choosing what to delete
             UpdateConfirm();
@@ -375,6 +411,8 @@ namespace Dhikr
         void Collapse()
         {
             if (_deleteMode) SetDeleteMode(false);
+            if (_settingsMode) SetSettingsMode(false);
+            _glow.Tune(40, 1.0); _glow.Target = 0;
             CancelScript();
             _idle.Stop();
             _mode = Mode.Collapsed;
@@ -397,25 +435,159 @@ namespace Dhikr
         /// </summary>
         public void Remind()
         {
-            if (!IsVisible || _mouseDown) return;
-            Topmost = false; Topmost = true; // re-assert z-order
-            UpdateBackdrop();
-            CancelScript();
-            _idle.Stop();
-            _mode = Mode.Peek;
+            if (!IsVisible || _mouseDown || _attention) return;
+            PrepareReminder();
 
-            _w.Tune(120, 0.5); _h.Tune(120, 0.55); _inset.Tune(110, 0.45);
-            _w.Target = PeekW + 2; _h.Target = HandleH + 10; _inset.Target = 3;
-            Kick();
-
-            Later(750, () => { _p.Tune(55, 1.0); _p.Target = 9; Kick(); });
-            Later(1350, () =>
+            // Three soft glowing peeks, then the tug and the jelly opening.
+            Pulse(0); Pulse(800); Pulse(1600);
+            Later(2500, () => { PeekOut(); _glow.Tune(90, 1.0); _glow.Target = 0.8; Kick(); });
+            Later(3100, () => { _p.Tune(55, 1.0); _p.Target = 9; Kick(); });
+            Later(3700, () =>
             {
                 _p.Tune(260, 0.4); _p.Target = 0;
                 Expand(true);
                 _w.Velocity += 260;
+                _glow.Tune(6, 1.0); _glow.Target = 0; // the halo fades slowly as it opens
                 if (!_panel.IsMouseOver) CollapseAfter(Defaults.ReminderVisibleSeconds);
             });
+        }
+
+        /// <summary>
+        /// Reminder while the user is away: keep peeking out and glowing (three pulses, a pause, again...)
+        /// until the widget is clicked, so the dhikr isn't missed.
+        /// </summary>
+        public void RemindUntilClicked()
+        {
+            if (!IsVisible || _mouseDown || _attention) return;
+            PrepareReminder();
+            _attention = true;
+            AttentionRound(0);
+        }
+
+        public bool InAttention { get { return _attention; } }
+        bool _attention;
+
+        void AttentionRound(int delay)
+        {
+            Pulse(delay); Pulse(delay + 800); Pulse(delay + 1600);
+            Later(delay + 1600 + 7000, () => { if (_attention) AttentionRound(0); });
+        }
+
+        /// <summary>The user clicked the calling widget: open it on the new dhikr.</summary>
+        void Acknowledge()
+        {
+            Expand(true);
+            _glow.Tune(6, 1.0); _glow.Target = 0;
+            if (!_panel.IsMouseOver) CollapseAfter(Defaults.ReminderVisibleSeconds);
+        }
+
+        void PrepareReminder()
+        {
+            Topmost = false; Topmost = true; // re-assert z-order
+            UpdateBackdrop();
+            if (_mode == Mode.Expanded) Collapse();
+            CancelScript();
+            _idle.Stop();
+            _glowFx.Color = Glass.GlowColor(_c.State.GlowColor);
+        }
+
+        void PeekOut()
+        {
+            _mode = Mode.Peek;
+            _w.Tune(120, 0.5); _h.Tune(120, 0.55); _inset.Tune(110, 0.45);
+            _w.Target = PeekW + 2; _h.Target = HandleH + 10; _inset.Target = 3;
+        }
+
+        /// <summary>One gentle "out and back in" of the handle with a glow.</summary>
+        void Pulse(int delay)
+        {
+            Later(delay, () =>
+            {
+                if (!IsVisible || _mouseDown || _mode == Mode.Expanded || _panel.IsMouseOver) return;
+                _mode = Mode.Peek;
+                _w.Tune(160, 0.55); _h.Tune(160, 0.6); _inset.Tune(150, 0.5); _glow.Tune(90, 1.0);
+                _w.Target = PeekW + 4; _h.Target = HandleH + 8; _inset.Target = 4; _glow.Target = 1;
+                Kick();
+            });
+            Later(delay + 420, () =>
+            {
+                if (!IsVisible || _mouseDown || _mode == Mode.Expanded || _panel.IsMouseOver) return;
+                _w.Tune(140, 0.6); _h.Tune(140, 0.65); _inset.Tune(130, 0.55); _glow.Tune(40, 1.0);
+                _w.Target = HandleW; _h.Target = HandleH; _inset.Target = TuckedInset; _glow.Target = 0.25;
+                Kick();
+            });
+        }
+
+        /// <summary>Flash the halo once in the chosen colour (when picking a colour).</summary>
+        public void PreviewGlow()
+        {
+            _glowFx.Color = Glass.GlowColor(_c.State.GlowColor);
+            _glow.Tune(90, 1.0); _glow.Target = 1; Kick();
+            Later(700, () => { _glow.Tune(40, 1.0); _glow.Target = 0; Kick(); });
+            Touched();
+        }
+
+        // ---------- settings view inside the card ----------
+        //   ‹   كل 30 دقيقة   ›      (5-minute steps)
+        //     ● ● ● ● ● ●      ✓     (glow colour)
+
+        Border _gear;
+        Grid _settings;
+        TextBlock _intervalText;
+        ColorPicker _colors;
+        bool _settingsMode;
+        const double SettingsH = 2 + 8 + Btn + 6 + Btn + 8 + 2;
+
+        double SettingsW { get { return Math.Max(_cardW, 250); } }
+        double TargetW { get { return _settingsMode ? SettingsW : _cardW; } }
+        double TargetH { get { return _settingsMode ? SettingsH : _cardH; } }
+
+        Grid BuildSettingsView()
+        {
+            _intervalText = new TextBlock
+            {
+                FontSize = 15, Foreground = Glass.Text, FlowDirection = FlowDirection.RightToLeft,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            };
+            var less = IconButton(Chevron(false), Glass.TextDim, () => _c.StepInterval(-1));
+            var more = IconButton(Chevron(true), Glass.TextDim, () => _c.StepInterval(1));
+            less.ToolTip = "أقل 5 دقائق";
+            more.ToolTip = "أكثر 5 دقائق";
+            var top = new Grid { FlowDirection = FlowDirection.LeftToRight };
+            top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(less, 0); Grid.SetColumn(_intervalText, 1); Grid.SetColumn(more, 2);
+            top.Children.Add(less); top.Children.Add(_intervalText); top.Children.Add(more);
+
+            _colors = new ColorPicker(() => _c.State.GlowColor, key => _c.SetGlowColor(key), 16);
+            var done = IconButton(Geometry.Parse("M 8,13.5 L 11.5,17 L 18,9.5"), Glass.Accent, () => SetSettingsMode(false));
+            done.HorizontalAlignment = HorizontalAlignment.Right;
+            done.ToolTip = "تم";
+            var bottom = new Grid { FlowDirection = FlowDirection.LeftToRight, Margin = new Thickness(0, 6, 0, 0) };
+            bottom.Children.Add(_colors);
+            bottom.Children.Add(done);
+
+            var view = new Grid
+            {
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0, Visibility = Visibility.Collapsed,
+            };
+            view.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            view.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetRow(bottom, 1);
+            view.Children.Add(top);
+            view.Children.Add(bottom);
+            return view;
+        }
+
+        void SetSettingsMode(bool on)
+        {
+            _settingsMode = on;
+            _content.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+            _settings.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            Refresh(0);
+            Touched();
         }
 
         void Later(int ms, Action a)
@@ -449,7 +621,7 @@ namespace Dhikr
             double dt = _lastFrame == TimeSpan.Zero ? 1 / 60.0 : Math.Min((now - _lastFrame).TotalSeconds, 1 / 30.0);
             _lastFrame = now;
 
-            _w.Step(dt); _h.Step(dt); _inset.Step(dt); _s.Step(dt); _p.Step(dt);
+            _w.Step(dt); _h.Step(dt); _inset.Step(dt); _s.Step(dt); _p.Step(dt); _glow.Step(dt);
             if (_winMoving)
             {
                 _winX.Step(dt); _winY.Step(dt);
@@ -458,7 +630,7 @@ namespace Dhikr
             }
             Apply();
 
-            if (!_winMoving && _w.Settled && _h.Settled && _inset.Settled && _s.Settled && _p.Settled)
+            if (!_winMoving && _w.Settled && _h.Settled && _inset.Settled && _s.Settled && _p.Settled && _glow.Settled)
             {
                 CompositionTarget.Rendering -= OnFrame;
                 _rendering = false;
@@ -478,10 +650,19 @@ namespace Dhikr
             _clip.Rect = new Rect(0, 0, Math.Max(0, w - 2), Math.Max(0, h - 2));
             _clip.RadiusX = _clip.RadiusY = Math.Max(0, r - 1);
 
-            double p = Clamp((w - PeekW) / (_cardW - PeekW), 0, 1);
+            double p = Clamp((w - PeekW) / (TargetW - PeekW), 0, 1);
             _grip.Opacity = Clamp(1 - p * 4, 0, 1);
-            _content.Opacity = Clamp((p - 0.55) / 0.45, 0, 1);
-            _content.IsHitTestVisible = _mode == Mode.Expanded;
+            _content.Opacity = _settings.Opacity = Clamp((p - 0.55) / 0.45, 0, 1);
+            _content.IsHitTestVisible = _settings.IsHitTestVisible = _mode == Mode.Expanded;
+
+            // Glow halo (only attached while visible, so it costs nothing at rest).
+            double glow = _glow.Value;
+            if (glow > 0.01)
+            {
+                if (_panel.Effect != _glowFx) _panel.Effect = _glowFx;
+                _glowFx.Opacity = Math.Min(1, glow);
+            }
+            else if (_panel.Effect != null) _panel.Effect = null;
 
             // Jelly: a tug stretches the panel along X toward the edge; fast width changes squash Y a little.
             double pull = _p.Value;
@@ -504,10 +685,20 @@ namespace Dhikr
                 if (b.IsEmpty) b = new Rect(0, 0, 1, 1);
                 _shape = b;
                 _shapeRadius = r * Math.Min(_stretch.ScaleY, 1) * _s.Value;
-                if (!AlmostSame(b, _lastRegion))
+
+                // While glowing, the region grows so the halo isn't cut off (the blur window keeps the exact shape).
+                Rect region = b;
+                double regionRadius = _shapeRadius;
+                if (glow > 0.01)
                 {
-                    _lastRegion = b;
-                    Glass.SetRoundRegion(_hwnd, b, _shapeRadius);
+                    region.Inflate(GlowRoom, GlowRoom);
+                    region.Intersect(new Rect(0, 0, WinW, WinH));
+                    regionRadius += GlowRoom;
+                }
+                if (!AlmostSame(region, _lastRegion))
+                {
+                    _lastRegion = region;
+                    Glass.SetRoundRegion(_hwnd, region, regionRadius);
                 }
                 UpdateBackdrop();
             }
@@ -569,8 +760,9 @@ namespace Dhikr
             _panel.ReleaseMouseCapture();
             _s.Tune(380, 0.35); _s.Target = 1; Kick();
             if (wasDrag) SnapToEdge();
-            else if (_mode != Mode.Expanded) Expand(false); // tap on the handle opens it
-            else if (!_deleteMode) _c.Increment();         // tap on the open card counts
+            else if (_attention) Acknowledge();                // it was calling for attention: show the dhikr
+            else if (_mode != Mode.Expanded) Expand(false);    // tap on the handle opens it
+            else if (!_deleteMode && !_settingsMode) _c.Increment(); // tap on the open card counts
             e.Handled = true;
         }
 
@@ -614,6 +806,7 @@ namespace Dhikr
             _winY.Target = TargetTop(wa, st.VerticalRatio);
             _winMoving = true;
             Collapse();
+            if (_attention) AttentionRound(1200); // dragging doesn't dismiss a pending reminder
         }
 
         /// <summary>Place from saved state (startup, resolution / taskbar changes, side change in Settings).</summary>
