@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="76" viewBox="0 0 320 76">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34B558"/>
+      <stop offset="1" stop-color="#238A3F"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="318" height="74" rx="16" fill="url(#g)" stroke="#1B6E32" stroke-width="2"/>
+  <!-- download arrow -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 102 22 L 102 46"/>
+    <path d="M 92 37 L 102 47 L 112 37"/>
+    <path d="M 90 54 L 114 54"/>
+  </g>
+  <text x="130" y="49" fill="#FFFFFF" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="30" font-weight="700">Install</text>
+</svg>

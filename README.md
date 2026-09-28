@@ -8,7 +8,7 @@ Widget صغير جدًا بتصميم Dark Glass يعيش على حافة شاش
 <br>
 
 <a href="https://github.com/abdalla7ramadan57-a11y/dhikr/releases/latest/download/DhikrSetup.exe">
-  <img src="https://img.shields.io/badge/Install-2EA44F?style=for-the-badge&logo=windows&logoColor=white" alt="Install" height="64">
+  <img src="docs/install.svg" alt="Install" width="320">
 </a>
 
 **Windows 10 / 11 · 100 KB · بدون إنترنت أو حساب**
