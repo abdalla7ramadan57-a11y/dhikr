@@ -71,11 +71,19 @@ namespace Dhikr
             var saved = (s.Adhkar ?? new List<DhikrItem>()).Where(d => d != null && !string.IsNullOrWhiteSpace(d.Text)).ToList();
             string currentText = s.CurrentIndex >= 0 && s.CurrentIndex < saved.Count ? saved[s.CurrentIndex].Text : null;
 
+            // Built-in adhkar whose wording changed keep their counts under the new wording.
+            for (int r = 0; r < Defaults.Renamed.GetLength(0); r++)
+            {
+                string from = Defaults.Renamed[r, 0], to = Defaults.Renamed[r, 1];
+                foreach (var d in saved.Where(d => !d.Custom && d.Text == from)) d.Text = to;
+                if (currentText == from) currentText = to;
+            }
+
             var list = new List<DhikrItem>();
             foreach (var text in Defaults.Adhkar)
             {
-                var old = saved.FirstOrDefault(d => d.Text == text);
-                list.Add(new DhikrItem { Text = text, Count = old != null ? old.Count : 0 });
+                long count = saved.Where(d => !d.Custom && d.Text == text).Sum(d => d.Count);
+                list.Add(new DhikrItem { Text = text, Count = count });
             }
             foreach (var d in saved.Where(d => d.Custom && list.All(x => x.Text != d.Text)))
                 list.Add(d);

@@ -8,10 +8,17 @@ namespace Dhikr
     {
         public static readonly string[] Adhkar =
         {
-            "الله أكبر الله أكبر",
+            "الله أكبر",
+            "الحمد لله",
             "سبحان الله وبحمده، سبحان الله العظيم",
             "أستغفر الله العظيم",
             "لا إله إلا أنت سبحانك إني كنت من الظالمين",
+        };
+
+        /// <summary>Built-in adhkar whose wording changed: old text → new text (their counts carry over).</summary>
+        public static readonly string[,] Renamed =
+        {
+            { "الله أكبر الله أكبر", "الله أكبر" },
         };
 
         /// <summary>Reminder interval choices shown in the menus (minutes).</summary>
