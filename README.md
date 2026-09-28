@@ -11,6 +11,8 @@ Widget صغير جدًا بتصميم Dark Glass يعيش على حافة شاش
   <img src="docs/install.svg" alt="Install" width="320">
 </a>
 
+<img src="https://img.shields.io/github/downloads/abdalla7ramadan57-a11y/dhikr/total?style=for-the-badge&label=downloads&color=8E6B2E&cacheSeconds=300" alt="Downloads">
+
 **Windows 10 / 11 · 100 KB · بدون إنترنت أو حساب**
 
 <br>
