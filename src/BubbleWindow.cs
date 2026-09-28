@@ -113,7 +113,7 @@ namespace Dhikr
                 Width = Btn, Height = Btn, Stroke = Glass.Accent, StrokeThickness = 1.2, Opacity = 0, IsHitTestVisible = false,
                 RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = _rippleScale,
             };
-            var wave = IconButton(Geometry.Parse("M 5,13 Q 8,8.5 11,13 T 17,13 T 23,13"), Glass.Accent, () => _c.Increment());
+            var wave = IconButton(Geometry.Parse("M 5,13 Q 8,8.5 11,13 T 17,13 T 23,13"), Glass.Accent, () => { if (!_deleteMode) _c.Increment(); });
             wave.Background = Glass.Subtle;
             var waveHost = new Grid { Width = Btn, Height = Btn };
             waveHost.Children.Add(_ripple);
@@ -131,14 +131,29 @@ namespace Dhikr
             counter.Children.Add(waveHost);
             counter.Children.Add(_count);
 
-            // Small "+" at the end of the counter row: add a new dhikr.
-            var plus = IconButton(Geometry.Parse("M 13,8.5 L 13,17.5 M 8.5,13 L 17.5,13"), Glass.TextDim, () => _c.ShowAddDialog());
-            plus.HorizontalAlignment = HorizontalAlignment.Right;
-            plus.ToolTip = "إضافة ذكر";
+            // "+" and "−" at the two ends of the counter row. "−" switches to delete mode, where the same two
+            // spots become "✓" (delete the dhikr on screen) and "✕" (leave without deleting).
+            _counter = counter;
+            _plus = IconButton(Geometry.Parse("M 13,8.5 L 13,17.5 M 8.5,13 L 17.5,13"), Glass.TextDim, () => _c.ShowAddDialog());
+            _plus.HorizontalAlignment = HorizontalAlignment.Right;
+            _plus.ToolTip = "إضافة ذكر";
+            _minus = IconButton(Geometry.Parse("M 8.5,13 L 17.5,13"), Glass.TextDim, () => SetDeleteMode(true));
+            _minus.HorizontalAlignment = HorizontalAlignment.Left;
+            _minus.ToolTip = "حذف ذكر";
+            _confirm = IconButton(Geometry.Parse("M 8,13.5 L 11.5,17 L 18,9.5"), Glass.HexBrush("#E89A9A"), ConfirmDelete);
+            _confirm.HorizontalAlignment = HorizontalAlignment.Right;
+            _confirm.ToolTip = "حذف هذا الذكر";
+            _cancel = IconButton(Geometry.Parse("M 9.5,9.5 L 16.5,16.5 M 16.5,9.5 L 9.5,16.5"), Glass.TextDim, () => SetDeleteMode(false));
+            _cancel.HorizontalAlignment = HorizontalAlignment.Left;
+            _cancel.ToolTip = "إلغاء";
             var bottom = new Grid { FlowDirection = FlowDirection.LeftToRight, Margin = new Thickness(0, 4, 0, 0) };
             counter.Margin = new Thickness(0);
             bottom.Children.Add(counter);
-            bottom.Children.Add(plus);
+            bottom.Children.Add(_minus);
+            bottom.Children.Add(_plus);
+            bottom.Children.Add(_cancel);
+            bottom.Children.Add(_confirm);
+            SetDeleteMode(false);
 
             _content = new Grid { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0 };
             _content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -261,6 +276,7 @@ namespace Dhikr
             else _text.Text = item.Text;
 
             if (_mode == Mode.Expanded) { _w.Target = _cardW; _h.Target = _cardH; Kick(); }
+            UpdateConfirm();
         }
 
         void SlideText(string newText, int direction)
@@ -324,8 +340,41 @@ namespace Dhikr
             if (!_panel.IsMouseOver) CollapseAfter(Defaults.CollapseAfterSeconds);
         }
 
+        // ---------- delete mode ----------
+
+        Border _plus, _minus, _confirm, _cancel;
+        UIElement _counter;
+        bool _deleteMode;
+
+        void SetDeleteMode(bool on)
+        {
+            _deleteMode = on;
+            _plus.Visibility = _minus.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+            _confirm.Visibility = _cancel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            _counter.Opacity = on ? 0.35 : 1; // counting is paused while choosing what to delete
+            UpdateConfirm();
+            Touched();
+        }
+
+        /// <summary>Only user-added adhkar can be deleted; ✓ is dimmed on the built-in ones.</summary>
+        void UpdateConfirm()
+        {
+            if (_confirm == null) return;
+            bool deletable = _c.State.Current.Custom;
+            _confirm.Opacity = deletable ? 1 : 0.3;
+            _confirm.ToolTip = deletable ? "حذف هذا الذكر" : "الأذكار الأساسية لا تُحذف";
+        }
+
+        void ConfirmDelete()
+        {
+            if (!_c.State.Current.Custom) return;
+            SetDeleteMode(false);
+            _c.DeleteCurrent();
+        }
+
         void Collapse()
         {
+            if (_deleteMode) SetDeleteMode(false);
             CancelScript();
             _idle.Stop();
             _mode = Mode.Collapsed;
@@ -521,7 +570,7 @@ namespace Dhikr
             _s.Tune(380, 0.35); _s.Target = 1; Kick();
             if (wasDrag) SnapToEdge();
             else if (_mode != Mode.Expanded) Expand(false); // tap on the handle opens it
-            else _c.Increment();                           // tap on the open card counts
+            else if (!_deleteMode) _c.Increment();         // tap on the open card counts
             e.Handled = true;
         }
 
