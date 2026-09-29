@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ذِكْر · يذكّرك بالله على مدار يومك</title>
+<meta name="description" content="برنامج صغير ومجاني يعيش على حافة شاشة الكمبيوتر ويذكّرك بذكر الله على مدار اليوم، مع عدّاد لكل ذكر. أقل من ١٠٠ كيلوبايت، بدون إنترنت ولا حساب.">
+<meta property="og:title" content="ذِكْر · يذكّرك بالله على مدار يومك">
+<meta property="og:description" content="برنامج صغير ومجاني على حافة شاشتك، يذكّرك بالأذكار كل ساعة.">
+<link rel="icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Placeholder display font until the brand font is added (swap --font-display below) -->
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: "Amiri", serif;
+    --font-body: "Amiri", serif;
+    --ink: #141414; --mute: #77706A; --line: #EFE7DE;
+    --orange: #EB8119; --orange-deep: #D06C0B; --peach: #FFF6EC; --sage: #6F9E8B;
+    --radius: 28px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  html, body { overflow-x: hidden; }
+  .hero > * { min-width: 0; }
+  body { background: #fff; color: var(--ink); font-family: var(--font-body); font-size: 21px; line-height: 1.9; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1120px, 100% - 48px); margin-inline: auto; }
+
+  /* ---------- header ---------- */
+  header { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .86); backdrop-filter: blur(12px); border-bottom: 1px solid transparent; transition: border-color .2s; }
+  header.scrolled { border-color: var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 74px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-family: var(--font-display); font-weight: 700; font-size: 30px; }
+  .logo { width: 30px; height: 30px; border-radius: 50%; background: var(--sage); display: grid; place-items: center; }
+  .logo i { width: 11px; height: 11px; border-radius: 50%; background: #FBF7EF; }
+  nav { display: flex; gap: 30px; font-size: 19px; color: var(--mute); }
+  nav a:hover { color: var(--ink); }
+
+  /* ---------- hero ---------- */
+  .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: 72px 0 96px; }
+  .eyebrow { color: var(--orange); font-size: 20px; letter-spacing: 0; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(76px, 12vw, 150px); line-height: 1.35; margin: 26px 0 6px; }
+  h1 .k { color: var(--orange); }
+  .lead { font-size: 26px; color: #3b3632; max-width: 30ch; }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px; margin: 34px 0 18px; }
+  .btn { display: inline-flex; align-items: center; gap: 12px; height: 64px; padding: 0 30px; border-radius: 20px; font-family: var(--font-body); font-size: 22px; font-weight: 700; transition: transform .15s, background .15s, box-shadow .15s; }
+  .btn svg { width: 24px; height: 24px; flex: none; }
+  .btn.primary { background: var(--orange); color: #fff; box-shadow: 0 10px 30px rgba(235, 129, 25, .28); }
+  .btn.primary:hover { background: var(--orange-deep); transform: translateY(-2px); }
+  .btn.ghost { background: #F6F3EF; color: #9A938C; cursor: default; }
+  .btn small { font-weight: 400; font-size: 16px; opacity: .8; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--mute); font-size: 18px; }
+  .meta span::before { content: "•"; color: var(--orange); margin-left: 8px; }
+
+  /* the live widget preview */
+  .stage { position: relative; aspect-ratio: 1 / .9; border-radius: 36px; background: var(--peach); border: 1px solid var(--line); overflow: hidden; }
+  .screen { position: absolute; inset: 11% 8% 17%; border-radius: 20px; background: #1E1E21; padding: 12px; }
+  .screen .in { position: relative; height: 100%; border-radius: 12px; background: #F7F4F0; overflow: hidden; }
+  .screen .ln { height: 12px; border-radius: 6px; background: #E8E1D9; margin: 22px 28px 0; }
+  .base { position: absolute; left: 3%; right: 3%; bottom: 12%; height: 18px; border-radius: 9px; background: #E4D8CB; }
+  .widget { position: absolute; top: 50%; right: -4px; transform: translateY(-50%); background: linear-gradient(#2B2B2F, #1C1C1F); border: 1px solid #3A3A40;
+            border-radius: 18px; width: 14px; height: 60px; overflow: hidden; animation: open 7s cubic-bezier(.3, 1.5, .5, 1) infinite; box-shadow: 0 0 0 rgba(136, 184, 255, 0); }
+  .widget .c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; animation: show 7s ease infinite;
+               color: #EDEDED; font-family: var(--font-display); white-space: nowrap; }
+  .widget .t { font-size: 22px; line-height: 1.4; display: flex; align-items: center; gap: 14px; }
+  .widget .t b { color: #8E918F; font-weight: 400; font-size: 18px; }
+  .widget .n { display: flex; align-items: center; gap: 8px; color: #A7ADAA; font-size: 17px; font-family: system-ui; }
+  .widget .n i { width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, .08); display: grid; place-items: center; color: #8CCFB9; font-style: normal; font-size: 13px; }
+  @keyframes open {
+    0%, 8% { width: 14px; height: 60px; right: -4px; box-shadow: 0 0 0 rgba(136, 184, 255, 0); }
+    12% { width: 22px; right: 6px; box-shadow: 0 0 28px rgba(136, 184, 255, .8); }
+    16% { width: 14px; right: -4px; box-shadow: 0 0 10px rgba(136, 184, 255, .3); }
+    20% { width: 22px; right: 6px; box-shadow: 0 0 28px rgba(136, 184, 255, .8); }
+    24% { width: 14px; right: -4px; }
+    34%, 78% { width: 250px; height: 92px; right: 14px; box-shadow: 0 0 18px rgba(136, 184, 255, .25); }
+    88%, 100% { width: 14px; height: 60px; right: -4px; box-shadow: 0 0 0 rgba(136, 184, 255, 0); }
+  }
+  @keyframes show { 0%, 33% { opacity: 0; } 38%, 74% { opacity: 1; } 80%, 100% { opacity: 0; } }
+
+  /* ---------- verse band ---------- */
+  .verse { text-align: center; padding: 84px 0; border-block: 1px solid var(--line); }
+  .orn { display: flex; align-items: center; justify-content: center; gap: 18px; color: var(--orange); }
+  .orn i { width: 110px; height: 1.5px; background: currentColor; opacity: .7; }
+  .orn b { width: 12px; height: 12px; border: 1.5px solid currentColor; transform: rotate(45deg); }
+  .verse q { display: block; font-family: var(--font-display); font-size: clamp(38px, 5.4vw, 64px); line-height: 1.7; margin: 26px 0 8px; quotes: none; }
+  .verse cite { font-style: normal; color: var(--mute); font-size: 18px; }
+
+  /* ---------- sections ---------- */
+  section { padding: 96px 0 0; }
+  h2 { font-family: var(--font-display); font-size: clamp(44px, 5vw, 62px); line-height: 1.3; margin-bottom: 14px; }
+  h2 .k { color: var(--orange); }
+  .sub { color: var(--mute); font-size: 22px; max-width: 46ch; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 44px; }
+  .card { background: var(--peach); border: 1px solid var(--line); border-radius: var(--radius); padding: 30px 26px 28px; }
+  .card .ic { width: 52px; height: 52px; border-radius: 16px; background: #fff; display: grid; place-items: center; margin-bottom: 18px; box-shadow: 0 6px 16px rgba(184, 106, 28, .08); }
+  .card .ic svg { width: 26px; height: 26px; stroke: var(--orange); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .card h3 { font-family: var(--font-display); font-size: 28px; line-height: 1.4; margin-bottom: 6px; }
+  .card p { color: #5c5650; font-size: 19px; line-height: 1.8; }
+
+  .benefits { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 44px; }
+  .benefit { border: 1px solid var(--line); border-radius: var(--radius); padding: 30px 32px; }
+  .benefit h3 { font-family: var(--font-display); font-size: 30px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+  .benefit h3::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--orange); flex: none; }
+  .benefit blockquote { font-family: var(--font-display); font-size: 24px; line-height: 1.9; color: #2b2724; }
+  .benefit cite { display: block; font-style: normal; color: var(--mute); font-size: 17px; margin-top: 6px; }
+
+  .steps { counter-reset: s; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; }
+  .step { position: relative; background: var(--peach); border-radius: var(--radius); padding: 34px 28px 28px; }
+  .step::before { counter-increment: s; content: counter(s, arabic-indic); position: absolute; top: 18px; left: 26px; font-family: var(--font-display); font-size: 54px; line-height: 1; color: rgba(235, 129, 25, .22); }
+  .step h3 { font-family: var(--font-display); font-size: 28px; margin-bottom: 6px; }
+  .step p { color: #5c5650; font-size: 19px; }
+  .note { margin-top: 22px; padding: 20px 26px; border-radius: 20px; border: 1px dashed #E7C9A6; color: #6a5a4b; font-size: 18px; }
+  .note b { color: var(--ink); }
+
+  .final { text-align: center; padding: 110px 0 90px; }
+  .final h2 { font-size: clamp(56px, 7vw, 92px); }
+  .final .cta { justify-content: center; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--mute); font-size: 17px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; }
+  footer a:hover { color: var(--ink); }
+
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .8s ease, transform .8s ease; }
+  .reveal.on { opacity: 1; transform: none; }
+
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: 1fr; padding-top: 40px; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    nav { display: none; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 19px; }
+    .grid, .benefits, .steps { grid-template-columns: 1fr; }
+    .btn { width: 100%; justify-content: center; }
+    .lead { font-size: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .widget, .widget .c { animation: none; } .reveal { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+
+<header id="top">
+  <div class="wrap bar">
+    <a class="brand" href="#top"><span class="logo"><i></i></span>ذِكْر</a>
+    <nav>
+      <a href="#features">المميزات</a>
+      <a href="#benefits">فضل الذكر</a>
+      <a href="#install">التثبيت</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <p class="eyebrow">برنامج صغير على حافة شاشتك</p>
+      <h1>ذِكْـــــر</h1>
+      <p class="lead">يطلّ عليك بهدوء كل ساعة، ويذكّرك بذكر الله وأنت منشغل بيومك.</p>
+      <div class="cta">
+        <a class="btn primary" href="downloads/DhikrSetup.exe" download>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>
+          تنزيل لويندوز <small>مجانًا</small>
+        </a>
+        <span class="btn ghost" title="نسخة الماك قيد التجهيز">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8a4.5 4.5 0 0 0-3.8 2.3c-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3a10 10 0 0 0 1.3-2.6 4 4 0 0 1-2.5-3.8zM14.1 5.8c.6-.8 1.1-1.9 1-3-1 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg>
+          للماك <small>قريبًا</small>
+        </span>
+      </div>
+      <div class="meta"><span>مجاني تمامًا</span><span>أقل من ١٠٠ كيلوبايت</span><span>بدون إنترنت ولا حساب</span></div>
+    </div>
+
+    <div class="stage" aria-hidden="true">
+      <div class="screen"><div class="in">
+        <div class="ln" style="width:52%"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:44%"></div>
+        <div class="ln" style="width:62%"></div><div class="ln" style="width:38%"></div>
+        <div class="widget"><div class="c">
+          <div class="t"><b>‹</b>أستغفر الله العظيم<b>›</b></div>
+          <div class="n"><i>〰</i>33</div>
+        </div></div>
+      </div></div>
+      <div class="base"></div>
+    </div>
+  </div>
+
+  <div class="verse reveal">
+    <div class="wrap">
+      <div class="orn"><i></i><b></b><i></i></div>
+      <q>أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ</q>
+      <cite>سورة الرعد · ٢٨</cite>
+    </div>
+  </div>
+
+  <section id="features" class="wrap">
+    <div class="reveal">
+      <h2>بسيط، <span class="k">وهادئ</span></h2>
+      <p class="sub">لا نوافذ مزعجة ولا إشعارات. مقبض رفيع على طرف الشاشة، يتمدد لما تحتاجه ويرجع لمكانه.</p>
+    </div>
+    <div class="grid">
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></div>
+        <h3>تذكير كل ساعة</h3>
+        <p>يطلّ من حافة الشاشة بإضاءة خفيفة ويعرض ذكرًا جديدًا. تقدر تخليه كل نص ساعة أو ساعتين.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 12c2.5-5 5.5-5 8 0s5.5 5 8 0"/></svg></div>
+        <h3>عدّاد لكل ذكر</h3>
+        <p>اضغط زر الموجة وسبّح، ولكل ذكر عدّاده الخاص محفوظ على جهازك.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        <h3>أذكارك أنت</h3>
+        <p>أضف الأذكار التي تحبها بزر +، واحذف ما أضفته بزر −، وتنقّل بينها بالأسهم.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M20 4C10 4 5 9 5 19"/><path d="M5 19c4-1 8-4 10-9"/></svg></div>
+        <h3>خفيف ومجاني</h3>
+        <p>أقل من ١٠٠ كيلوبايت، يعمل بدون إنترنت ولا حساب، ويبدأ تلقائيًا مع ويندوز.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="benefits" class="wrap">
+    <div class="reveal">
+      <h2>فضـــل <span class="k">الذكر</span></h2>
+      <p class="sub">من كتاب الله وصحيح السنّة.</p>
+    </div>
+    <div class="benefits">
+      <div class="benefit reveal">
+        <h3>طمأنينة للقلب</h3>
+        <blockquote>﴿أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ﴾</blockquote>
+        <cite>سورة الرعد · ٢٨</cite>
+      </div>
+      <div class="benefit reveal">
+        <h3>الله يذكرك</h3>
+        <blockquote>﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾</blockquote>
+        <cite>سورة البقرة · ١٥٢</cite>
+      </div>
+      <div class="benefit reveal">
+        <h3>مغفرة وبركة ورزق</h3>
+        <blockquote>﴿اسْتَغْفِرُوا رَبَّكُمْ إِنَّهُ كَانَ غَفَّارًا<br>يُرْسِلِ السَّمَاءَ عَلَيْكُم مِّدْرَارًا﴾</blockquote>
+        <cite>سورة نوح · ١٠–١١</cite>
+      </div>
+      <div class="benefit reveal">
+        <h3>ثقيلة في الميزان</h3>
+        <blockquote>«كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»</blockquote>
+        <cite>متفق عليه · البخاري ٦٦٨٢ ومسلم ٢٦٩٤</cite>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="wrap">
+    <div class="reveal">
+      <h2>التثبيـــت</h2>
+      <p class="sub">دقيقة واحدة، وبعدها يشتغل وحده مع كل تشغيل للجهاز.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><h3>نزّل البرنامج</h3><p>اضغط «تنزيل لويندوز» فيتم تنزيل ملف DhikrSetup.exe.</p></div>
+      <div class="step reveal"><h3>افتح الملف</h3><p>واضغط «تثبيت». لا يحتاج صلاحيات مسؤول.</p></div>
+      <div class="step reveal"><h3>وخلاص</h3><p>يظهر على حافة الشاشة، وتجد اختصاره على سطح المكتب.</p></div>
+    </div>
+    <p class="note reveal">لو ظهرت رسالة <b>Windows protected your PC</b>: اضغط <b>More info</b> ثم <b>Run anyway</b>. البرنامج غير موقّع رقميًا، وهذا طبيعي للبرامج الصغيرة المجانية.</p>
+  </section>
+
+  <div class="wrap final reveal">
+    <h2>اجعل لسانك رطبًا <span class="k">بذكر الله</span></h2>
+    <div class="cta">
+      <a class="btn primary" href="downloads/DhikrSetup.exe" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>
+        تنزيل لويندوز <small>مجانًا</small>
+      </a>
+    </div>
+    <div class="meta" style="justify-content:center">
+      <span>Windows 10 و 11</span><span>النسخة ١٫٣</span>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>ذِكْر · مجاني لوجه الله تعالى</span>
+    <a href="https://github.com/abdalla7ramadan57-a11y/dhikr" target="_blank" rel="noopener">الكود المصدري على GitHub</a>
+  </div>
+</footer>
+
+<script>
+  // header hairline on scroll + gentle reveal on scroll
+  var header = document.querySelector("header");
+  addEventListener("scroll", function () { header.classList.toggle("scrolled", scrollY > 8); }, { passive: true });
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("on"); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+</script>
+</body>
+</html>
