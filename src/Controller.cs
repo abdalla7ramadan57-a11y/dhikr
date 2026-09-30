@@ -180,6 +180,8 @@ namespace Dhikr
 
         public void ShowAddDialog() { ShowPopup(new AddDhikrWindow(_widget.EdgeAnchor, _widget.OnRightSide, AddDhikr)); }
 
+        public void ShowInfo(DhikrDef d) { ShowPopup(new InfoWindow(d, _widget.EdgeAnchor, _widget.OnRightSide)); }
+
         public void ShowSettings() { ShowPopup(new SettingsWindow(this, _widget.EdgeAnchor, _widget.OnRightSide)); }
 
         void ShowPopup(Window w)

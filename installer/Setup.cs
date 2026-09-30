@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -20,7 +20,7 @@ namespace DhikrSetup
     /// </summary>
     static class Setup
     {
-        const string AppName = "Dhikr", DisplayName = "Dhikr - ذكر", Version = "1.3.0";
+        const string AppName = "Dhikr", DisplayName = "Dhikr - ذكر", Version = "1.4.0";
         const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Dhikr";
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
@@ -61,9 +61,10 @@ namespace DhikrSetup
             StopRunningApp();
             Directory.CreateDirectory(InstallDir);
 
-            using (var src = Assembly.GetExecutingAssembly().GetManifestResourceStream("Dhikr.exe"))
+            using (var src = Assembly.GetExecutingAssembly().GetManifestResourceStream("Dhikr.exe.gz"))
+            using (var gz = new System.IO.Compression.GZipStream(src, System.IO.Compression.CompressionMode.Decompress))
             using (var dst = File.Create(AppExe))
-                src.CopyTo(dst);
+                gz.CopyTo(dst);
 
             string self = Process.GetCurrentProcess().MainModule.FileName;
             if (!string.Equals(Path.GetFullPath(self), Path.GetFullPath(UninstallExe), StringComparison.OrdinalIgnoreCase))

@@ -26,7 +26,7 @@ namespace Dhikr
         const double HandleW = 14, HandleH = 64, TuckedInset = -6;
         const double PeekW = 18, PeekInset = -3;          // hover: peeks out a little
         const double OpenInset = 8, Radius = 16;           // expanded card
-        const double MaxTextWidth = 240, Btn = 26, MinCardW = 190;
+        const double MaxTextWidth = 240, Btn = 26, MinCardW = 214;
 
         enum Mode { Collapsed, Peek, Expanded, Dragging }
 
@@ -166,6 +166,16 @@ namespace Dhikr
             _gear.Margin = new Thickness(0, 0, Btn + 2, 0);
             _gear.ToolTip = "الإعدادات";
             bottom.Children.Add(_gear);
+
+            // ⓘ next to "−": virtue and evidence of the current dhikr (hover = small card, click = full view).
+            _infoBtn = IconButton(Geometry.Parse("M 13,4.8 A 8.2,8.2 0 1 1 12.99,4.8 Z M 13,11.8 V 17.4 M 13,8.6 V 8.9"), Glass.TextDim, OpenInfo);
+            _infoBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            _infoBtn.Margin = new Thickness(Btn + 2, 0, 0, 0);
+            _infoBtn.MouseEnter += (s, e) => { _tipHide.Stop(); _tipShow.Stop(); _tipShow.Start(); };
+            _infoBtn.MouseLeave += (s, e) => { _tipShow.Stop(); _tipHide.Stop(); _tipHide.Start(); };
+            _tipShow.Tick += (s, e) => { _tipShow.Stop(); ShowTip(); };
+            _tipHide.Tick += (s, e) => { _tipHide.Stop(); if (!_infoBtn.IsMouseOver && !(_tip != null && _tip.IsMouseOver)) CloseTip(); else _tipHide.Start(); };
+            bottom.Children.Add(_infoBtn);
             SetDeleteMode(false);
 
             _content = new Grid { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0 };
@@ -197,7 +207,7 @@ namespace Dhikr
             LocationChanged += (s, e) => UpdateBackdrop();
             IsVisibleChanged += (s, e) => UpdateBackdrop();
 
-            _idle.Tick += (s, e) => { _idle.Stop(); if (!_panel.IsMouseOver && !_mouseDown) Collapse(); };
+            _idle.Tick += (s, e) => { _idle.Stop(); if (!_panel.IsMouseOver && !_mouseDown && !(_tip != null && _tip.IsMouseOver)) Collapse(); else if (_mode == Mode.Expanded) CollapseAfter(2); };
 
             _panel.MouseEnter += (s, e) =>
             {
@@ -311,6 +321,7 @@ namespace Dhikr
 
             if (_mode == Mode.Expanded) { _w.Target = TargetW; _h.Target = TargetH; Kick(); }
             UpdateConfirm();
+            UpdateInfoButton();
         }
 
         void SlideText(string newText, int direction)
@@ -386,6 +397,7 @@ namespace Dhikr
         {
             _deleteMode = on;
             _plus.Visibility = _minus.Visibility = _gear.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+            UpdateInfoButton();
             _confirm.Visibility = _cancel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             _counter.Opacity = on ? 0.35 : 1; // counting is paused while choosing what to delete
             UpdateConfirm();
@@ -408,8 +420,50 @@ namespace Dhikr
             _c.DeleteCurrent();
         }
 
+        // ---------- ⓘ info ----------
+
+        Border _infoBtn;
+        InfoTip _tip;
+        readonly DispatcherTimer _tipShow = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        readonly DispatcherTimer _tipHide = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+
+        void UpdateInfoButton()
+        {
+            if (_infoBtn == null) return;
+            bool has = AdhkarData.Find(_c.State.Current.Text) != null;
+            _infoBtn.Visibility = has && !_deleteMode ? Visibility.Visible : Visibility.Collapsed;
+            if (!has) CloseTip();
+        }
+
+        Rect CardOnScreen { get { return new Rect(Left + _shape.X, Top + _shape.Y, _shape.Width, _shape.Height); } }
+
+        void ShowTip()
+        {
+            var d = AdhkarData.Find(_c.State.Current.Text);
+            if (d == null || _mode != Mode.Expanded) return;
+            CloseTip();
+            _tip = new InfoTip(d, CardOnScreen, _rightSide);
+            _tip.MouseLeave += (s, e) => { _tipHide.Stop(); _tipHide.Start(); };
+            _tip.MouseEnter += (s, e) => { _tipHide.Stop(); _idle.Stop(); };
+            _tip.Show();
+        }
+
+        void CloseTip()
+        {
+            _tipShow.Stop();
+            if (_tip != null) { _tip.Close(); _tip = null; }
+        }
+
+        void OpenInfo()
+        {
+            CloseTip();
+            var d = AdhkarData.Find(_c.State.Current.Text);
+            if (d != null) _c.ShowInfo(d);
+        }
+
         void Collapse()
         {
+            CloseTip();
             if (_deleteMode) SetDeleteMode(false);
             if (_settingsMode) SetSettingsMode(false);
             _glow.Tune(40, 1.0); _glow.Target = 0;

@@ -16,6 +16,8 @@ namespace Dhikr
         readonly Border _card;
         readonly TranslateTransform _slide = new TranslateTransform();
         bool _closing;
+        /// <summary>Show in the middle of the screen instead of next to the widget.</summary>
+        protected bool Centered;
         readonly BlurBackdrop _backdrop = new BlurBackdrop();
 
         protected GlassPopup(Point edgeAnchor, bool rightSide, string title)
@@ -53,8 +55,8 @@ namespace Dhikr
             {
                 Rect wa = Screens.WorkAreaAt(_anchor, out _);
                 const double gap = 14;
-                double left = _rightSide ? _anchor.X - ActualWidth - gap : _anchor.X + gap;
-                double top = _anchor.Y - ActualHeight / 2;
+                double left = Centered ? wa.Left + (wa.Width - ActualWidth) / 2 : _rightSide ? _anchor.X - ActualWidth - gap : _anchor.X + gap;
+                double top = Centered ? wa.Top + (wa.Height - ActualHeight) / 2 : _anchor.Y - ActualHeight / 2;
                 Left = Math.Max(wa.Left, Math.Min(left, wa.Right - ActualWidth));
                 Top = Math.Max(wa.Top + 8, Math.Min(top, wa.Bottom - ActualHeight - 8));
 
@@ -68,7 +70,7 @@ namespace Dhikr
                 // Slides out from the screen edge.
                 var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
                 _slide.BeginAnimation(TranslateTransform.XProperty,
-                    new DoubleAnimation(_rightSide ? 14 : -14, 0, TimeSpan.FromMilliseconds(260)) { EasingFunction = ease });
+                    new DoubleAnimation(Centered ? 0 : _rightSide ? 14 : -14, 0, TimeSpan.FromMilliseconds(260)) { EasingFunction = ease });
                 BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
                 Activate();
                 OnOpened();

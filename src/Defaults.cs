@@ -2,18 +2,14 @@ namespace Dhikr
 {
     /// <summary>
     /// Everything you might want to tweak lives here.
-    /// To add a built-in dhikr, just add a line to <see cref="Adhkar"/>.
+    /// The built-in adhkar (with their virtues and sources) are in assets/adhkar.json.
     /// </summary>
     public static class Defaults
     {
-        public static readonly string[] Adhkar =
+        public static string[] Adhkar
         {
-            "الله أكبر",
-            "الحمد لله",
-            "سبحان الله وبحمده، سبحان الله العظيم",
-            "أستغفر الله العظيم",
-            "لا إله إلا أنت سبحانك إني كنت من الظالمين",
-        };
+            get { return System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(AdhkarData.All, d => d.Text)); }
+        }
 
         /// <summary>Built-in adhkar whose wording changed: old text → new text (their counts carry over).</summary>
         public static readonly string[,] Renamed =
